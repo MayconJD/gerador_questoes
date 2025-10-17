@@ -63,30 +63,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função para chamar a API do Gemini via nosso backend
     const callGeminiAPI = async (prompt) => {
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
-                })
-            });
+    try {
+        const response = await fetch('/api/gemini', { // ou './api/gemini'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            })
+        });
 
-            if (!response.ok) {
-                throw new Error(`Erro na API: ${response.statusText}`);
-            }
+        const data = await response.json();
 
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
-        } catch (error) {
-            console.error("Erro ao chamar a API Gemini:", error);
-            return null;
+        if (!response.ok) {
+            console.error("Erro na resposta da API:", data);
+            throw new Error(data.error || `Erro na API: ${response.statusText}`);
         }
-    };
+
+        // Verifica se a resposta tem o formato esperado
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+            console.error("Formato de resposta inválido:", data);
+            throw new Error("Formato de resposta inválido da API");
+        }
+
+        return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+        console.error("Erro ao chamar a API Gemini:", error);
+        alert(`Erro: ${error.message}. Verifique o console para mais detalhes.`);
+        return null;
+    }
+};
 
     // Busca as questões na API com o conteúdo programático específico
     const fetchQuestions = async (subjects, numQuestions) => {
