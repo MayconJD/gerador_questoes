@@ -1,3 +1,5 @@
+// script.js (versão corrigida)
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // Por esta (adicione .js no final):
@@ -64,39 +66,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função para chamar a API do Gemini via nosso backend
     const callGeminiAPI = async (prompt) => {
-    try {
-        const response = await fetch('/api/gemini', { // ou './api/gemini'
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }]
-            })
-        });
+        try {
+            const response = await fetch('/api/gemini', { // ou './api/gemini'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }]
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!response.ok) {
-            console.error("Erro na resposta da API:", data);
-            throw new Error(data.error || `Erro na API: ${response.statusText}`);
+            if (!response.ok) {
+                console.error("Erro na resposta da API:", data);
+                throw new Error(data.error || `Erro na API: ${response.statusText}`);
+            }
+
+            // --- CORREÇÃO APLICADA AQUI ---
+            // Verificação mais robusta para garantir que a resposta não foi bloqueada
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || data.candidates[0].content.parts.length === 0) {
+                console.error("Formato de resposta inválido ou conteúdo bloqueado pela API:", data);
+                
+                // Fornece um erro mais útil se for um bloqueio de segurança
+                const finishReason = data.candidates?.[0]?.finishReason;
+                if (finishReason === 'SAFETY') {
+                     throw new Error("O pedido foi bloqueado por segurança. Tente um prompt diferente.");
+                }
+                throw new Error("A API retornou uma resposta vazia ou em formato inválido.");
+            }
+
+            return data.candidates[0].content.parts[0].text;
+        } catch (error) {
+            console.error("Erro ao chamar a API Gemini:", error);
+            alert(`Erro: ${error.message}. Verifique o console para mais detalhes.`);
+            return null;
         }
+    };
 
-        // Verifica se a resposta tem o formato esperado
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-            console.error("Formato de resposta inválido:", data);
-            throw new Error("Formato de resposta inválido da API");
-        }
-
-        return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-        console.error("Erro ao chamar a API Gemini:", error);
-        alert(`Erro: ${error.message}. Verifique o console para mais detalhes.`);
-        return null;
-    }
-};
 
     // Busca as questões na API com o conteúdo programático específico
     const fetchQuestions = async (subjects, numQuestions) => {
