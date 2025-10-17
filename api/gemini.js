@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   // Habilita CORS se necessário
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -35,27 +35,27 @@ export default async function handler(req, res) {
     // Verifica se houve erro na resposta da API
     if (!response.ok) {
       console.error('Erro da API Gemini:', data);
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         error: 'Erro ao chamar a API Gemini',
-        details: data 
+        details: data
       });
     }
 
     // Verifica se a resposta tem o formato esperado
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
       console.error('Resposta inesperada da API:', data);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Resposta inválida da API Gemini',
-        details: data 
+        details: data
       });
     }
 
     res.status(200).json(data);
   } catch (error) {
     console.error('Erro no handler:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Erro ao chamar a API Gemini',
-      message: error.message 
+      message: error.message
     });
   }
-}
+};
