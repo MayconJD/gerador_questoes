@@ -1,5 +1,6 @@
+// Usamos module.exports para garantir a compatibilidade com o ambiente da Vercel.
 module.exports = async (req, res) => {
-  // Habilita CORS se necessário
+  // Habilita CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -16,12 +17,11 @@ module.exports = async (req, res) => {
 
   if (!GEMINI_API_KEY) {
     console.error('GEMINI_API_KEY não está configurada');
-    return res.status(500).json({ error: 'Configuração da API ausente' });
+    return res.status(500).json({ error: 'Configuração da API ausente no servidor' });
   }
 
   try {
-    // Modelo atualizado
-    const response = await fetch(
+    const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
@@ -30,32 +30,38 @@ module.exports = async (req, res) => {
       }
     );
 
-    const data = await response.json();
+    const data = await geminiResponse.json();
 
-    // Verifica se houve erro na resposta da API
-    if (!response.ok) {
-      console.error('Erro da API Gemini:', data);
-      return res.status(response.status).json({
-        error: 'Erro ao chamar a API Gemini',
+    if (!geminiResponse.ok) {
+      console.error('Erro da API Gemini (Status não-OK):', data);
+      return res.status(geminiResponse.status).json({ 
+        error: 'Erro na comunicação com a API Gemini',
+        details: data 
+      });
+    }
+
+    // **LÓGICA CENTRAL DA CORREÇÃO**
+    // Extrai o texto de forma segura. Se qualquer parte do caminho for nula, o resultado será `undefined`.
+    const textContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (textContent) {
+      // SUCESSO: Envia um objeto simples contendo apenas o texto para o frontend.
+      res.status(200).json({ text: textContent });
+    } else {
+      // FALHA (BLOQUEIO DE SEGURANÇA, ETC): Envia um erro claro para o frontend.
+      const finishReason = data?.candidates?.[0]?.finishReason || 'RAZÃO DESCONHECIDA';
+      console.error(`Resposta da API bloqueada ou inválida. Razão: ${finishReason}`, data);
+      res.status(400).json({
+        error: `A API não retornou conteúdo. Motivo: ${finishReason}. Tente um prompt com menos restrições.`,
         details: data
       });
     }
 
-    // Verifica se a resposta tem o formato esperado
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      console.error('Resposta inesperada da API:', data);
-      return res.status(500).json({
-        error: 'Resposta inválida da API Gemini',
-        details: data
-      });
-    }
-
-    res.status(200).json(data);
   } catch (error) {
-    console.error('Erro no handler:', error);
-    res.status(500).json({
-      error: 'Erro ao chamar a API Gemini',
-      message: error.message
+    console.error('Erro no handler da API:', error);
+    res.status(500).json({ 
+      error: 'Erro interno no servidor ao processar a chamada.',
+      message: error.message 
     });
   }
 };
