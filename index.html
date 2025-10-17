@@ -1,92 +1,89 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Questões - Deláqua</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Questões - Deláqua</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="cursor-glow"></div>
 
-    <div class="cursor-glow"></div>
-
-    <div class="container">
-        <div id="setup-screen" class="screen active">
-            <div class="setup-layout">
-                <div class="setup-header">
-                    <h1>Simulador de questões</h1>
-                    <p class="subtitle">-Deláqua-</p>
-                </div>
-                <div class="setup-form-container">
-                    <form id="quiz-setup-form">
-                        <div class="subjects-grid">
-                            <div class="subject-item">
-                                <input type="checkbox" id="portugues" name="subject" value="Língua Portuguesa">
-                                <label for="portugues">Língua Portuguesa</label>
-                            </div>
-                            <div class="subject-item">
-                                <input type="checkbox" id="matematica" name="subject" value="Matemática">
-                                <label for="matematica">Matemática</label>
-                             </div>
-                            <div class="subject-item">
-                                <input type="checkbox" id="informatica" name="subject" value="Informática">
-                                <label for="informatica">Informática</label>
-                            </div>
-                            <div class="subject-item">
-                               <input type="checkbox" id="completa" name="subject" value="Prova Completa">
-                               <label for="completa">Prova Completa</label>
-                            </div>
-                        </div>
-
-                        <div class="question-counter-container">
-                            <label for="num-questions">Número de Questões</label>
-                            <div class="counter-widget">
-                                <button type="button" class="counter-btn" id="decrease-btn">-</button>
-                                <input type="number" id="num-questions" value="1" min="1">
-                                <button type="button" class="counter-btn" id="increase-btn">+</button>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="pill-button start-btn">
-                            Iniciar <span>&rarr;</span>
-                        </button>
-                    </form>
-                </div>
-            </div>
+  <div class="container">
+    <div id="setup-screen" class="screen active">
+      <div class="setup-layout">
+        <div class="setup-header">
+          <h1>Simulador de questões</h1>
+          <p class="subtitle">-Deláqua-</p>
         </div>
-
-        <div id="quiz-screen" class="screen">
-            <a href="#" id="cancel-quiz" class="cancel-link">&larr; cancelar</a>
-            <div class="quiz-content">
-                <p id="question-counter"></p>
-                <h2 id="question-text">Carregando pergunta...</h2>
-                <div id="options-container">
-                    </div>
-                <div class="quiz-navigation">
-                    <button class="nav-button" id="prev-btn">Anterior</button>
-                    <button class="pill-button" id="next-btn">Próxima</button>
-                    <button class="nav-button" id="skip-btn">Pular</button>
-                </div>
+        <div class="setup-form-container">
+          <form id="quiz-setup-form">
+            <div class="subjects-grid">
+              <div class="subject-item">
+                <input type="checkbox" id="portugues" name="subject" value="Língua Portuguesa">
+                <label for="portugues">Língua Portuguesa</label>
+              </div>
+              <div class="subject-item">
+                <input type="checkbox" id="matematica" name="subject" value="Matemática">
+                <label for="matematica">Matemática</label>
+              </div>
+              <div class="subject-item">
+                <input type="checkbox" id="informatica" name="subject" value="Informática">
+                <label for="informatica">Informática</label>
+              </div>
+              <div class="subject-item">
+                <input type="checkbox" id="completa" name="subject" value="Prova Completa">
+                <label for="completa">Prova Completa</label>
+              </div>
             </div>
-        </div>
 
-        <div id="results-screen" class="screen">
-            <div class="results-content">
-                <h1>Simulado Concluído!</h1>
-                <p id="score-text">Sua pontuação: 5/10</p>
-                <div class="results-buttons">
-                    <button class="pill-button" id="menu-btn">Menu Inicial</button>
-                    <button class="pill-button" id="review-btn">O que eu errei?</button>
-                </div>
-                <div id="feedback-container">
-                    </div>
+            <div class="question-counter-container">
+              <label for="num-questions">Número de Questões</label>
+              <div class="counter-widget">
+                <button type="button" class="counter-btn" id="decrease-btn">-</button>
+                <input type="number" id="num-questions" value="1" min="1">
+                <button type="button" class="counter-btn" id="increase-btn">+</button>
+              </div>
             </div>
+
+            <button type="submit" class="pill-button start-btn">
+              Iniciar <span>&rarr;</span>
+            </button>
+          </form>
         </div>
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="quiz-screen" class="screen">
+      <a href="#" id="cancel-quiz" class="cancel-link">&larr; cancelar</a>
+      <div class="quiz-content">
+        <p id="question-counter"></p>
+        <h2 id="question-text">Carregando pergunta...</h2>
+        <div id="options-container"></div>
+        <div class="quiz-navigation">
+          <button class="nav-button" id="prev-btn">Anterior</button>
+          <button class="pill-button" id="next-btn">Próxima</button>
+          <button class="nav-button" id="skip-btn">Pular</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="results-screen" class="screen">
+      <div class="results-content">
+        <h1>Simulado Concluído!</h1>
+        <p id="score-text">Sua pontuação: 5/10</p>
+        <div class="results-buttons">
+          <button class="pill-button" id="menu-btn">Menu Inicial</button>
+          <button class="pill-button" id="review-btn">O que eu errei?</button>
+        </div>
+        <div id="feedback-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>
