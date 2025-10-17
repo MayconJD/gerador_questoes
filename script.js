@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const API_URL = "/api/gemini";
+    // Por esta (adicione .js no final):
+    const API_URL = "/api/gemini.js";
 
     // --- ELEMENTOS DO DOM ---
     const screens = {
