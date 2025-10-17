@@ -1,365 +1,263 @@
-document.addEventListener('DOMContentLoaded', () => {
+import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-    // --- ELEMENTOS DO DOM ---
-    const screens = {
-        setup: document.getElementById('setup-screen'),
-        quiz: document.getElementById('quiz-screen'),
-        results: document.getElementById('results-screen')
+document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // ELEMENTOS DO DOM
+  // =========================
+  const screens = {
+    setup: document.getElementById("setup-screen"),
+    quiz: document.getElementById("quiz-screen"),
+    results: document.getElementById("results-screen"),
+  };
+
+  const setupForm = document.getElementById("quiz-setup-form");
+  const numQuestionsInput = document.getElementById("num-questions");
+  const decreaseBtn = document.getElementById("decrease-btn");
+  const increaseBtn = document.getElementById("increase-btn");
+
+  const questionCounter = document.getElementById("question-counter");
+  const questionText = document.getElementById("question-text");
+  const optionsContainer = document.getElementById("options-container");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
+  const skipBtn = document.getElementById("skip-btn");
+  const cancelQuizBtn = document.getElementById("cancel-quiz");
+
+  const scoreText = document.getElementById("score-text");
+  const menuBtn = document.getElementById("menu-btn");
+  const reviewBtn = document.getElementById("review-btn");
+  const feedbackContainer = document.getElementById("feedback-container");
+  const cursorGlow = document.querySelector(".cursor-glow");
+
+  // =========================
+  // ESTADO
+  // =========================
+  let questions = [];
+  let userAnswers = [];
+  let currentQuestionIndex = 0;
+  let score = 0;
+
+  // =========================
+  // CHAVE API GEMINI (INSIRA A SUA)
+  // =========================
+  const API_KEY = "AIzaSyCdDDkLKcDZIy4QlGOYMALJn5XB2XxSuOs";
+  const genAI = new GoogleGenerativeAI(API_KEY);
+
+  // =========================
+  // EFEITO CURSOR
+  // =========================
+  document.addEventListener("mousemove", (e) => {
+    cursorGlow.style.left = `${e.clientX}px`;
+    cursorGlow.style.top = `${e.clientY}px`;
+  });
+
+  // =========================
+  // TROCAR DE TELA
+  // =========================
+  const switchScreen = (name) => {
+    Object.values(screens).forEach((s) => s.classList.remove("active"));
+    screens[name].classList.add("active");
+  };
+
+  // =========================
+  // CONTADOR DE QUESTÕES
+  // =========================
+  decreaseBtn.addEventListener("click", () => {
+    const v = parseInt(numQuestionsInput.value);
+    if (v > 1) numQuestionsInput.value = v - 1;
+  });
+  increaseBtn.addEventListener("click", () => {
+    numQuestionsInput.value = parseInt(numQuestionsInput.value) + 1;
+  });
+
+  // =========================
+  // FUNÇÃO: CHAMAR GEMINI DIRETO
+  // =========================
+  const callGeminiDirect = async (prompt) => {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      console.error("Erro ao chamar Gemini:", err);
+      alert("Erro ao conectar à API Gemini. Verifique sua chave e conexão.");
+      return null;
+    }
+  };
+
+  // =========================
+  // BUSCAR QUESTÕES
+  // =========================
+  const fetchQuestions = async (subjects, numQuestions) => {
+    questionText.textContent = "Gerando seu simulado...";
+    optionsContainer.innerHTML = "";
+    switchScreen("quiz");
+
+    const syllabus = {
+      "Língua Portuguesa": "acentuação, ortografia, crase, pontuação, interpretação de texto, análise sintática.",
+      Matemática: "equações, porcentagem, frações, regra de três, gráficos e tabelas.",
+      Informática: "MS Windows, Word, Excel, internet, correio eletrônico.",
+      "CG/Atualidades": "atualidades do Brasil e do mundo.",
     };
 
-    const setupForm = document.getElementById('quiz-setup-form');
-    const numQuestionsInput = document.getElementById('num-questions');
-    const decreaseBtn = document.getElementById('decrease-btn');
-    const increaseBtn = document.getElementById('increase-btn');
+    let detailedSubjects = subjects.includes("Prova Completa")
+      ? Object.entries(syllabus)
+          .map(([k, v]) => `${k} (${v})`)
+          .join(", ")
+      : subjects.map((s) => `${s} (${syllabus[s]})`).join(", ");
 
-    const questionCounter = document.getElementById('question-counter');
-    const questionText = document.getElementById('question-text');
-    const optionsContainer = document.getElementById('options-container');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const skipBtn = document.getElementById('skip-btn');
-    const cancelQuizBtn = document.getElementById('cancel-quiz');
+    const prompt = `
+Gere ${numQuestions} questões de múltipla escolha para concurso público (nível médio)
+com base nestes tópicos: ${detailedSubjects}.
+Use o formato JSON exatamente assim:
+[
+  {
+    "question": "Pergunta aqui...",
+    "options": ["Opção A", "Opção B", "Opção C", "Opção D"],
+    "correctAnswerIndex": 0
+  }
+]
+`;
 
-    const scoreText = document.getElementById('score-text');
-    const menuBtn = document.getElementById('menu-btn');
-    const reviewBtn = document.getElementById('review-btn');
-    const feedbackContainer = document.getElementById('feedback-container');
+    const resultText = await callGeminiDirect(prompt);
+    if (!resultText) return;
 
-    const cursorGlow = document.querySelector('.cursor-glow');
+    try {
+      const clean = resultText.replace(/```json|```/g, "").trim();
+      questions = JSON.parse(clean);
+      userAnswers = new Array(questions.length).fill(null);
+      currentQuestionIndex = 0;
+      displayQuestion();
+    } catch (e) {
+      console.error("Erro ao processar JSON:", e, resultText);
+      questionText.textContent = "Erro ao processar as questões. Tente novamente.";
+    }
+  };
 
-    // --- ESTADO DO APLICATIVO ---
-    let questions = [];
-    let userAnswers = [];
-    let currentQuestionIndex = 0;
-    let score = 0;
+  // =========================
+  // EXIBIR QUESTÃO
+  // =========================
+  const displayQuestion = () => {
+    const q = questions[currentQuestionIndex];
+    questionCounter.textContent = `Questão ${currentQuestionIndex + 1} de ${questions.length}`;
+    questionText.textContent = q.question;
+    optionsContainer.innerHTML = "";
 
-    // --- FUNÇÕES ---
-
-    // Efeito de brilho do cursor
-    document.addEventListener('mousemove', (e) => {
-        cursorGlow.style.left = `${e.clientX}px`;
-        cursorGlow.style.top = `${e.clientY}px`;
+    q.options.forEach((opt, i) => {
+      const id = `q${currentQuestionIndex}_opt${i}`;
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <input type="radio" name="question${currentQuestionIndex}" id="${id}" value="${i}" class="option-input">
+        <label for="${id}" class="option-label">${opt}</label>
+      `;
+      optionsContainer.appendChild(div);
     });
 
-    // Muda a tela visível
-    const switchScreen = (screenName) => {
-        Object.values(screens).forEach(screen => screen.classList.remove('active'));
-        screens[screenName].classList.add('active');
-    };
-
-    // Lógica do contador de questões
-    decreaseBtn.addEventListener('click', () => {
-        let currentValue = parseInt(numQuestionsInput.value);
-        if (currentValue > 1) {
-            numQuestionsInput.value = currentValue - 1;
-        }
-    });
-
-    increaseBtn.addEventListener('click', () => {
-        numQuestionsInput.value = parseInt(numQuestionsInput.value) + 1;
-    });
-
-    // Função para chamar a API do Gemini via nosso backend (VERSÃO CORRIGIDA)
-    const callGeminiAPI = async (prompt) => {
-        try {
-            const response = await fetch('/api/gemini', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
-                })
-            });
-
-            const data = await response.json();
-
-            // Agora, qualquer erro (4xx, 5xx) será tratado aqui.
-            // A mensagem de erro vem diretamente do nosso backend.
-            if (!response.ok) {
-                throw new Error(data.error || 'Erro desconhecido retornado pelo servidor.');
-            }
-
-            // Em caso de sucesso, nosso backend garante que `data.text` existe.
-            return data.text;
-
-        } catch (error) {
-            console.error("Erro ao chamar a API Gemini:", error);
-            // O alerta agora mostrará a mensagem de erro clara que criamos no backend.
-            alert(`Erro: ${error.message}. Verifique o console para mais detalhes.`);
-            return null;
-        }
-    };
-
-    // Busca as questões na API com o conteúdo programático específico
-    const fetchQuestions = async (subjects, numQuestions) => {
-        questionText.textContent = 'Gerando seu simulado... Isso pode levar alguns segundos.';
-        optionsContainer.innerHTML = '';
-        switchScreen('quiz');
-
-        const syllabus = {
-            'Língua Portuguesa': `intelecção de textos, intertextualidade, acentuação, ortografia, crase, pontuação, frase, oração, período, análise morfossintática, classificação de palavras, colocação pronominal, regência, concordância, termos da oração, período composto, semântica, elementos da comunicação, funções da linguagem, morfologia, vozes verbais, figuras de linguagem, sinônimos, antônimos, homônimos, parônimos, signo linguístico, estrutura e formação de palavras. Para interpretação, use textos curtos.`,
-            'Matemática': `Números Naturais e Inteiros, Divisibilidade, MMC, MDC, Decomposição em Fatores Primos, Números Racionais, Noções de Números Reais, Relação de Ordem, Valor Absoluto, Equação de 1º e 2º Grau, Problemas com as quatro operações, Função do 1º e 2º Grau, Progressão Aritmética e Geométrica, Soma de termos de PA e PG, Porcentagem, Razão, Proporção, Juros Simples e Noções de Estatística.`,
-            'Informática': `MS-Windows 10 (pastas, arquivos, atalhos, área de trabalho, menus), atalhos do Windows (copiar, colar, etc), MS-Word 2016 (formatação de texto, tabelas, cabeçalhos, inserção de objetos), MS-Excel 2016 (planilhas, células, fórmulas, funções, gráficos), Correio eletrônico (envio de mensagens, anexos), Internet (navegação, URL, links, busca), MS Teams (chats, chamadas, grupos, reuniões).`,
-            'CG/Atualidades': `Cenário cultural, político, econômico e social no Brasil e no Mundo, Organização Social, Cultural, Saúde, Meio Ambiente, Política e Economia Brasileira, conflitos nacionais e mundiais. Focar em eventos amplamente veiculados nos últimos dois anos.`
-        };
-
-        let detailedSubjects;
-        if (subjects.includes('Prova Completa')) {
-            detailedSubjects = `Língua Portuguesa (${syllabus['Língua Portuguesa']}), Matemática (${syllabus['Matemática']}), Informática (${syllabus['Informática']}) e Conhecimentos Gerais/Atualidades (${syllabus['CG/Atualidades']})`;
-        } else {
-            detailedSubjects = subjects.map(subject => `${subject} (${syllabus[subject]})`).join(', ');
-        }
-        
-        const prompt = `
-            Gere ${numQuestions} questões de múltipla escolha para um concurso público de nível médio, misturando os seguintes tópicos: ${detailedSubjects}.
-            Para cada questão, forneça:
-            1. O enunciado da pergunta.
-            2. Uma lista com 4 opções de resposta.
-            3. O índice da resposta correta (de 0 a 3).
-
-            O formato de saída DEVE ser um array JSON válido, sem nenhum texto, comentários ou formatação adicional (como \`\`\`json).
-            Exemplo de formato:
-            [
-                {
-                    "question": "Qual a capital do Brasil?",
-                    "options": ["Rio de Janeiro", "São Paulo", "Brasília", "Salvador"],
-                    "correctAnswerIndex": 2
-                },
-                {
-                    "question": "Quanto é 2 + 2?",
-                    "options": ["3", "4", "5", "6"],
-                    "correctAnswerIndex": 1
-                }
-            ]
-        `;
-
-        const resultText = await callGeminiAPI(prompt);
-        if (resultText) {
-            try {
-                const cleanedJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-                questions = JSON.parse(cleanedJson);
-                userAnswers = new Array(questions.length).fill(null);
-                currentQuestionIndex = 0;
-                displayQuestion();
-            } catch (error) {
-                console.error("Erro ao processar o JSON das questões:", error, "JSON recebido:", resultText);
-                questionText.textContent = 'Houve um erro ao gerar as questões. O formato da resposta da API pode ser inválido. Tente novamente.';
-            }
-        } else {
-            questionText.textContent = 'Não foi possível obter as questões da API. Verifique o console e a mensagem de erro para mais detalhes.';
-        }
-    };
-
-    // Exibe a questão atual na tela
-    const displayQuestion = () => {
-        if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) return;
-
-        const currentQuestion = questions[currentQuestionIndex];
-        questionCounter.textContent = `Questão ${currentQuestionIndex + 1} de ${questions.length}`;
-        questionText.textContent = currentQuestion.question;
-        optionsContainer.innerHTML = '';
-
-        currentQuestion.options.forEach((option, index) => {
-            const optionId = `q${currentQuestionIndex}_option${index}`;
-            const optionElement = document.createElement('div');
-            optionElement.innerHTML = `
-                <input type="radio" name="question${currentQuestionIndex}" id="${optionId}" value="${index}" class="option-input">
-                <label for="${optionId}" class="option-label">${option}</label>
-            `;
-            optionsContainer.appendChild(optionElement);
-        });
-
-        const savedAnswer = userAnswers[currentQuestionIndex];
-        if (savedAnswer !== null) {
-            const radioToCheck = document.querySelector(`#q${currentQuestionIndex}_option${savedAnswer}`);
-            if (radioToCheck) radioToCheck.checked = true;
-        }
-
-        updateNavButtons();
-    };
-
-    // Atualiza o estado dos botões de navegação
-    const updateNavButtons = () => {
-        prevBtn.disabled = currentQuestionIndex === 0;
-        if (currentQuestionIndex === questions.length - 1) {
-            nextBtn.textContent = 'Finalizar';
-        } else {
-            nextBtn.textContent = 'Próxima';
-        }
-    };
-
-    // Salva a resposta do usuário
-    optionsContainer.addEventListener('change', (event) => {
-        if (event.target.type === 'radio') {
-            userAnswers[currentQuestionIndex] = parseInt(event.target.value);
-        }
-    });
-
-    // Inicia o simulado
-    setupForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const selectedSubjects = [...document.querySelectorAll('input[name="subject"]:checked')].map(cb => cb.value);
-        const num = parseInt(numQuestionsInput.value);
-
-        if (selectedSubjects.length > 0 && num > 0) {
-            fetchQuestions(selectedSubjects, num);
-        } else {
-            alert('Por favor, selecione ao menos uma matéria e um número de questões maior que zero.');
-        }
-    });
-
-    // Navegação do Quiz
-    nextBtn.addEventListener('click', () => {
-        if (currentQuestionIndex < questions.length - 1) {
-            currentQuestionIndex++;
-            displayQuestion();
-        } else {
-            calculateScore();
-            switchScreen('results');
-        }
-    });
-
-    prevBtn.addEventListener('click', () => {
-        if (currentQuestionIndex > 0) {
-            currentQuestionIndex--;
-            displayQuestion();
-        }
-    });
-
-    skipBtn.addEventListener('click', () => {
-        nextBtn.click();
-    });
-
-    cancelQuizBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (confirm("Tem certeza que deseja cancelar o simulado? Seu progresso será perdido.")) {
-            resetQuiz();
-        }
-    });
-
-    // Calcula a pontuação final
-    const calculateScore = () => {
-        score = 0;
-        for (let i = 0; i < questions.length; i++) {
-            if (userAnswers[i] === questions[i].correctAnswerIndex) {
-                score++;
-            }
-        }
-        scoreText.textContent = `Sua pontuação: ${score}/${questions.length}`;
-        feedbackContainer.innerHTML = '';
-        reviewBtn.style.display = 'inline-block';
-    };
-
-    // Busca feedback para as questões erradas
-    reviewBtn.addEventListener('click', async () => {
-        const wrongQuestions = [];
-        for (let i = 0; i < questions.length; i++) {
-            if (userAnswers[i] !== questions[i].correctAnswerIndex) {
-                wrongQuestions.push({
-                    question: questions[i].question,
-                    userAnswer: userAnswers[i] !== null ? questions[i].options[userAnswers[i]] : "Não respondida",
-                    correctAnswer: questions[i].options[questions[i].correctAnswerIndex]
-                });
-            }
-        }
-
-        if (wrongQuestions.length === 0) {
-            feedbackContainer.innerHTML = '<p>Parabéns! Você não errou nenhuma questão.</p>';
-            reviewBtn.style.display = 'none';
-            return;
-        }
-
-        feedbackContainer.innerHTML = '<p>Analisando seus erros e gerando dicas de estudo...</p>';
-
-        const prompt = `
-            O usuário errou as seguintes questões em um simulado de concurso.
-            Para cada erro, forneça um feedback construtivo e didático, explicando por que a resposta correta é a certa e qual o conceito principal que o usuário deve estudar para não errar novamente.
-            Formate a resposta de forma clara. Use **títulos em negrito** para cada questão.
-            Questões erradas: ${JSON.stringify(wrongQuestions)}
-        `;
-
-        const feedbackText = await callGeminiAPI(prompt);
-        if (feedbackText) {
-            let formattedFeedback = feedbackText
-                .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
-                .replace(/\*/g, '')
-                .replace(/\n/g, '<br>');
-            feedbackContainer.innerHTML = formattedFeedback;
-        } else {
-            feedbackContainer.innerHTML = '<p>Não foi possível gerar o feedback no momento.</p>';
-        }
-        reviewBtn.style.display = 'none';
-    });
-
-    // Reseta o quiz para o estado inicial
-    const resetQuiz = () => {
-        questions = [];
-        userAnswers = [];
-        currentQuestionIndex = 0;
-        score = 0;
-        setupForm.reset();
-        numQuestionsInput.value = 1;
-        switchScreen('setup');
-    };
-
-    menuBtn.addEventListener('click', resetQuiz);
-
-
-    // --- CÓDIGO PARA ELEMENTOS ANIMADOS ---
-    const svgs = [
-        `<svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-6.6-4.35-9.33-8.19C.75 10.05 1.6 5.9 5.4 5.4c2.19-.3 3.84 1.29 4.6 2.7.76-1.41 2.41-3 4.6-2.7 3.8.5 4.65 4.65 2.73 7.41C18.6 16.65 12 21 12 21Z" fill="#4A5C2E"/><path d="M16 6.5l.5 1.5L18 8l-1.5.5L16 10l-.5-1.5L14 8l1.5-.5.5-1.5Z" fill="#f9f9f9"/></svg>`,
-        `<svg viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="32" rx="20" ry="8" stroke="#4A5C2E" stroke-width="1.5"/><ellipse cx="32" cy="32" rx="14" ry="6" stroke="#4A5C2E" stroke-width="1.5" transform="rotate(25 32 32)"/><path d="M24 24l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z" fill="#4A5C2E"/><path d="M42 40l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" fill="#4A5C2E"/></svg>`,
-        `<svg viewBox="0 0 24 24" fill="#4A5C2E"><path d="M8 8l.7 2.3L11 11l-2.3.7L8 14l-.7-2.3L5 11l2.3-.7L8 8Zm8 0l.7 2.3L19 11l-2.3.7L16 14l-.7-2.3L13 11l2.3-.7L16 8Zm-4 4l.7 2.3L15 15l-2.3.7L12 18l-.7-2.3L9 15l2.3-.7L12 12Z"/></svg>`,
-        `<svg viewBox="0 0 100 100" fill="none"><path d="M50 10C30 30 30 70 50 90C70 70 70 30 50 10Z" stroke="#4A5C2E" stroke-width="1.2"/><path d="M10 50C30 30 70 30 90 50C70 70 30 70 10 50Z" stroke="#4A5C2E" stroke-width="1.2"/><path d="M25 25C45 15 55 15 75 25C85 45 85 55 75 75C55 85 45 85 25 75C15 55 15 45 25 25Z" stroke="#4A5C2E" stroke-width="1.2"/></svg>`
-    ];
-
-    function criarElemento() {
-        const elemento = document.createElement('div');
-        elemento.classList.add('elemento');
-        elemento.innerHTML = svgs[Math.floor(Math.random() * svgs.length)];
-
-        elemento.style.left = Math.random() * (window.innerWidth - 80) + 'px';
-        elemento.style.top = Math.random() * (window.innerHeight - 80) + 'px';
-        document.body.appendChild(elemento);
-
-        let dx = (Math.random() - 0.5) * 2;
-        let dy = (Math.random() - 0.5) * 2;
-
-        function mover() {
-            const rect = elemento.getBoundingClientRect();
-            let x = rect.left + dx;
-            let y = rect.top + dy;
-
-            if (x <= 0 || x >= window.innerWidth - rect.width) {
-                dx = (Math.random() - 0.5) * 4;
-            }
-            if (y <= 0 || y >= window.innerHeight - rect.height) {
-                dy = (Math.random() - 0.5) * 4;
-            }
-
-            elemento.style.left = `${rect.left + dx}px`;
-            elemento.style.top = `${rect.top + dy}px`;
-        }
-
-        const moveInterval = setInterval(mover, 30);
-
-        setTimeout(() => {
-            clearInterval(moveInterval);
-            elemento.style.opacity = '0';
-            setTimeout(() => elemento.remove(), 500);
-        }, 5000);
-
-        elemento.addEventListener('click', () => {
-            elemento.classList.add('explode');
-            setTimeout(() => {
-                elemento.remove();
-                criarElemento();
-            }, 400);
-        });
+    // restaurar resposta anterior
+    const saved = userAnswers[currentQuestionIndex];
+    if (saved !== null) {
+      const radio = document.querySelector(`#q${currentQuestionIndex}_opt${saved}`);
+      if (radio) radio.checked = true;
     }
 
-    setInterval(criarElemento, 1000);
+    updateNavButtons();
+  };
+
+  const updateNavButtons = () => {
+    prevBtn.disabled = currentQuestionIndex === 0;
+    nextBtn.textContent =
+      currentQuestionIndex === questions.length - 1 ? "Finalizar" : "Próxima";
+  };
+
+  // =========================
+  // SALVAR RESPOSTAS
+  // =========================
+  optionsContainer.addEventListener("change", (e) => {
+    if (e.target.type === "radio") {
+      userAnswers[currentQuestionIndex] = parseInt(e.target.value);
+    }
+  });
+
+  // =========================
+  // INICIAR QUIZ
+  // =========================
+  setupForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const subjects = [...document.querySelectorAll('input[name="subject"]:checked')].map(
+      (cb) => cb.value
+    );
+    const num = parseInt(numQuestionsInput.value);
+    if (subjects.length === 0 || num < 1)
+      return alert("Selecione ao menos uma matéria e o número de questões.");
+    fetchQuestions(subjects, num);
+  });
+
+  // =========================
+  // NAVEGAÇÃO
+  // =========================
+  nextBtn.addEventListener("click", () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      currentQuestionIndex++;
+      displayQuestion();
+    } else {
+      calculateScore();
+      switchScreen("results");
+    }
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (currentQuestionIndex > 0) {
+      currentQuestionIndex--;
+      displayQuestion();
+    }
+  });
+
+  skipBtn.addEventListener("click", () => nextBtn.click());
+
+  cancelQuizBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (confirm("Deseja realmente cancelar o simulado?")) resetQuiz();
+  });
+
+  // =========================
+  // PONTUAÇÃO
+  // =========================
+  const calculateScore = () => {
+    score = 0;
+    questions.forEach((q, i) => {
+      if (userAnswers[i] === q.correctAnswerIndex) score++;
+    });
+    scoreText.textContent = `Sua pontuação: ${score}/${questions.length}`;
+    feedbackContainer.innerHTML = "";
+    reviewBtn.style.display = "inline-block";
+  };
+
+  // =========================
+  // REVISÃO
+  // =========================
+  reviewBtn.addEventListener("click", () => {
+    feedbackContainer.innerHTML = "";
+    questions.forEach((q, i) => {
+      const user = userAnswers[i] !== null ? q.options[userAnswers[i]] : "Não respondida";
+      const correct = q.options[q.correctAnswerIndex];
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <h3>Questão ${i + 1}</h3>
+        <p>${q.question}</p>
+        <p><strong>Sua resposta:</strong> ${user}</p>
+        <p><strong>Correta:</strong> ${correct}</p>
+        <hr>
+      `;
+      feedbackContainer.appendChild(div);
+    });
+  });
+
+  menuBtn.addEventListener("click", () => resetQuiz());
+
+  const resetQuiz = () => {
+    switchScreen("setup");
+    questions = [];
+    userAnswers = [];
+    score = 0;
+  };
 });
